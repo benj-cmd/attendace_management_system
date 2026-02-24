@@ -7,6 +7,7 @@ require_once __DIR__ . '/../models/Section.php';
 require_once __DIR__ . '/../models/Attendance.php';
 require_once __DIR__ . '/../models/AttendanceReport.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/auth.php';
 
 final class UnifiedReportController
 {
@@ -101,6 +102,8 @@ final class UnifiedReportController
         string $dateFrom,
         string $dateTo
     ): array {
+        $adminId = current_admin_id();
+        
         // Get latest report for each section in the date range
         $sql = "
             SELECT 
@@ -117,11 +120,13 @@ final class UnifiedReportController
             JOIN section_students ss ON s.id = ss.student_id
             JOIN sections sec ON ss.section_id = sec.id
             WHERE DATE(ar.submitted_at) BETWEEN :date_from AND :date_to
+            AND sec.admin_id = :admin_id
         ";
         
         $params = [
             'date_from' => $dateFrom,
-            'date_to' => $dateTo
+            'date_to' => $dateTo,
+            'admin_id' => $adminId
         ];
         
         if ($sectionId) {

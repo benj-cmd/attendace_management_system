@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/auth.php';
 
 final class Student
 {
     public static function all(?int $sectionId = null): array
     {
+        $adminId = current_admin_id();
         $sql =
             "SELECT
                 s.*,
@@ -15,11 +17,12 @@ final class Student
                 GROUP_CONCAT(DISTINCT sec.name ORDER BY sec.name SEPARATOR ', ') AS section_names
              FROM students s
              LEFT JOIN section_students ss ON ss.student_id = s.id
-             LEFT JOIN sections sec ON sec.id = ss.section_id";
+             LEFT JOIN sections sec ON sec.id = ss.section_id
+             WHERE s.admin_id = :admin_id";
 
-        $params = [];
+        $params = ['admin_id' => $adminId];
         if ($sectionId !== null && $sectionId > 0) {
-            $sql .= ' WHERE ss.section_id = :section_id';
+            $sql .= ' AND ss.section_id = :section_id';
             $params['section_id'] = $sectionId;
         }
 
@@ -32,13 +35,23 @@ final class Student
 
     public static function countAll(): int
     {
-        $stmt = db()->query('SELECT COUNT(*) AS c FROM students');
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('SELECT COUNT(*) AS c FROM students WHERE admin_id = :admin_id');
+        $stmt->execute(['admin_id' => $adminId]);
         $row = $stmt->fetch();
         return (int)($row['c'] ?? 0);
     }
 
     public static function findBySection(int $sectionId): array
     {
+        // Verify the section belongs to the current admin
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('SELECT id FROM sections WHERE id = :section_id AND admin_id = :admin_id LIMIT 1');
+        $stmt->execute(['section_id' => $sectionId, 'admin_id' => $adminId]);
+        if (!$stmt->fetch()) {
+            throw new InvalidArgumentException('Section not found or access denied');
+        }
+
         $stmt = db()->prepare(
             "SELECT
                 s.*,
@@ -54,15 +67,16 @@ final class Student
 
     public static function findById(int $id): ?array
     {
+        $adminId = current_admin_id();
         $stmt = db()->prepare(
             "SELECT
                 s.*,
                 TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)) AS fullname
              FROM students s
-             WHERE s.id = :id
+             WHERE s.id = :id AND s.admin_id = :admin_id
              LIMIT 1"
         );
-        $stmt->execute(['id' => $id]);
+        $stmt->execute(['id' => $id, 'admin_id' => $adminId]);
         $row = $stmt->fetch();
         return $row ?: null;
     }
@@ -113,10 +127,11 @@ final class Student
 
         try {
             $studentNumber = self::nextStudentNumber($pdo);
+            $adminId = current_admin_id();
 
             $stmt = $pdo->prepare(
-                'INSERT INTO students (first_name, middle_name, last_name, address, email, contact_number, student_number)
-                 VALUES (:first_name, :middle_name, :last_name, :address, :email, :contact_number, :student_number)'
+                'INSERT INTO students (first_name, middle_name, last_name, address, email, contact_number, student_number, admin_id)
+                 VALUES (:first_name, :middle_name, :last_name, :address, :email, :contact_number, :student_number, :admin_id)'
             );
             $stmt->execute([
                 'first_name' => $firstName,
@@ -126,6 +141,7 @@ final class Student
                 'email' => $email,
                 'contact_number' => $contactNumber,
                 'student_number' => $studentNumber,
+                'admin_id' => $adminId,
             ]);
 
             $id = (int)$pdo->lastInsertId();
@@ -146,6 +162,7 @@ final class Student
         string $email,
         string $contactNumber
     ): void {
+        $adminId = current_admin_id();
         $stmt = db()->prepare(
             'UPDATE students
              SET first_name = :first_name,
@@ -154,7 +171,7 @@ final class Student
                  address = :address,
                  email = :email,
                  contact_number = :contact_number
-             WHERE id = :id'
+             WHERE id = :id AND admin_id = :admin_id'
         );
         $stmt->execute([
             'id' => $id,
@@ -164,12 +181,14 @@ final class Student
             'address' => $address,
             'email' => $email,
             'contact_number' => $contactNumber,
+            'admin_id' => $adminId,
         ]);
     }
 
     public static function delete(int $id): void
     {
-        $stmt = db()->prepare('DELETE FROM students WHERE id = :id');
-        $stmt->execute(['id' => $id]);
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('DELETE FROM students WHERE id = :id AND admin_id = :admin_id');
+        $stmt->execute(['id' => $id, 'admin_id' => $adminId]);
     }
 }

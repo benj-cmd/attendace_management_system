@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/auth.php';
 
 final class Attendance
 {
@@ -89,6 +90,7 @@ final class Attendance
 
     public static function findByDate(string $date, ?string $approvalStatus = null): array
     {
+        $adminId = current_admin_id();
         $sql =
             "SELECT
                 a.*,
@@ -96,9 +98,9 @@ final class Attendance
                 TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)) AS fullname
              FROM attendance a
              JOIN students s ON s.id = a.student_id
-             WHERE a.date = :date";
+             WHERE a.date = :date AND s.admin_id = :admin_id";
 
-        $params = ['date' => $date];
+        $params = ['date' => $date, 'admin_id' => $adminId];
         if ($approvalStatus !== null && self::hasApprovalColumns()) {
             $sql .= ' AND a.approval_status = :approval_status';
             $params['approval_status'] = $approvalStatus;
@@ -126,12 +128,14 @@ final class Attendance
             return 0;
         }
 
+        $adminId = current_admin_id();
         $stmt = db()->prepare(
             "SELECT COUNT(*) AS c
-             FROM attendance
-             WHERE date = :date AND approval_status = 'Pending'"
+             FROM attendance a
+             JOIN students s ON s.id = a.student_id
+             WHERE a.date = :date AND a.approval_status = 'Pending' AND s.admin_id = :admin_id"
         );
-        $stmt->execute(['date' => $date]);
+        $stmt->execute(['date' => $date, 'admin_id' => $adminId]);
         $row = $stmt->fetch();
         return (int)($row['c'] ?? 0);
     }

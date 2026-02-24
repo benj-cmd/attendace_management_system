@@ -3,39 +3,47 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/auth.php';
 
 final class Section
 {
     public static function all(): array
     {
-        $stmt = db()->query('SELECT * FROM sections ORDER BY name ASC');
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('SELECT * FROM sections WHERE admin_id = :admin_id ORDER BY name ASC');
+        $stmt->execute(['admin_id' => $adminId]);
         return $stmt->fetchAll();
     }
 
     public static function countAll(): int
     {
-        $stmt = db()->query('SELECT COUNT(*) AS c FROM sections');
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('SELECT COUNT(*) AS c FROM sections WHERE admin_id = :admin_id');
+        $stmt->execute(['admin_id' => $adminId]);
         $row = $stmt->fetch();
         return (int)($row['c'] ?? 0);
     }
 
     public static function create(string $name): int
     {
-        $stmt = db()->prepare('INSERT INTO sections (name) VALUES (:name)');
-        $stmt->execute(['name' => $name]);
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('INSERT INTO sections (name, admin_id) VALUES (:name, :admin_id)');
+        $stmt->execute(['name' => $name, 'admin_id' => $adminId]);
         return (int)db()->lastInsertId();
     }
 
     public static function findById(int $id): ?array
     {
-        $stmt = db()->prepare('SELECT * FROM sections WHERE id = :id LIMIT 1');
-        $stmt->execute(['id' => $id]);
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('SELECT * FROM sections WHERE id = :id AND admin_id = :admin_id LIMIT 1');
+        $stmt->execute(['id' => $id, 'admin_id' => $adminId]);
         $row = $stmt->fetch();
         return $row ?: null;
     }
 
     public static function sectionsWithStudents(): array
     {
+        $adminId = current_admin_id();
         $sql = "SELECT
                     sec.id AS section_id,
                     sec.name AS section_name,
@@ -48,9 +56,11 @@ final class Section
                 FROM sections sec
                 LEFT JOIN section_students ss ON ss.section_id = sec.id
                 LEFT JOIN students s ON s.id = ss.student_id
+                WHERE sec.admin_id = :admin_id
                 ORDER BY sec.name ASC, s.last_name ASC, s.first_name ASC";
 
-        $stmt = db()->query($sql);
+        $stmt = db()->prepare($sql);
+        $stmt->execute(['admin_id' => $adminId]);
         $rows = $stmt->fetchAll();
 
         $map = [];
@@ -81,6 +91,14 @@ final class Section
 
     public static function addStudent(int $sectionId, int $studentId): void
     {
+        // Verify the section belongs to the current admin
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('SELECT id FROM sections WHERE id = :section_id AND admin_id = :admin_id LIMIT 1');
+        $stmt->execute(['section_id' => $sectionId, 'admin_id' => $adminId]);
+        if (!$stmt->fetch()) {
+            throw new InvalidArgumentException('Section not found or access denied');
+        }
+
         $stmt = db()->prepare('INSERT IGNORE INTO section_students (section_id, student_id) VALUES (:section_id, :student_id)');
         $stmt->execute([
             'section_id' => $sectionId,
@@ -90,6 +108,14 @@ final class Section
 
     public static function studentsInSection(int $sectionId): array
     {
+        // Verify the section belongs to the current admin
+        $adminId = current_admin_id();
+        $stmt = db()->prepare('SELECT id FROM sections WHERE id = :section_id AND admin_id = :admin_id LIMIT 1');
+        $stmt->execute(['section_id' => $sectionId, 'admin_id' => $adminId]);
+        if (!$stmt->fetch()) {
+            throw new InvalidArgumentException('Section not found or access denied');
+        }
+
         $stmt = db()->prepare(
             "SELECT
                 s.*,
