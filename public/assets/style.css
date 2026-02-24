@@ -25,29 +25,20 @@
 
 html, body {
     height: 100%;
-    overflow: hidden;
 }
 
 body { 
     background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%); 
-    height: 100%;
+    min-height: 100vh;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     color: var(--gray-800);
     overflow-x: hidden;
     scroll-behavior: smooth;
 }
 
-.d-flex {
-    height: 100vh;
-    overflow: hidden;
-}
-
 .content { 
-    flex: 1;
     background-color: #ffffff;
-    overflow-y: auto;
-    position: relative;
-    height: 100vh;
+    margin-left: 260px;
 }
 
 /* Modern Sidebar */
@@ -57,7 +48,6 @@ body {
     max-width: 260px;
     position: fixed;
     height: 100vh;
-    max-height: 100vh;
     top: 0;
     left: 0;
     box-sizing: border-box;
@@ -70,7 +60,6 @@ body {
     display: flex;
     flex-direction: column;
     z-index: 1030;
-    overflow: hidden;
 }
 
 .sidebar-nav {
@@ -95,11 +84,6 @@ body {
 
 .sidebar-nav::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
-}
-
-/* Add a spacer div to push content to the right of the fixed sidebar */
-.d-flex > .sidebar-modern + .content {
-    margin-left: 260px;
 }
 
 .sidebar-brand { 
@@ -342,13 +326,9 @@ header {
     .sidebar-modern {
         width: 70px;
         min-width: 70px;
-        max-width: 70px;
-        height: 100vh;
-        max-height: 100vh;
-        overflow: hidden;
     }
     
-    .d-flex > .sidebar-modern + .content {
+    .content {
         margin-left: 70px;
     }
     
@@ -366,9 +346,5 @@ header {
     .nav-link i {
         margin-right: 0;
         font-size: 20px;
-    }
-    
-    .sidebar-nav {
-        margin-right: -5px;
     }
 }
