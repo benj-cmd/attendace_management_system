@@ -221,7 +221,7 @@ require_once __DIR__ . '/../layout/sidebar.php';
                                 </td>
                                 <td class="text-muted small fw-medium"><?= e((string)$r['submitted_at']) ?></td>
                                 <td class="text-end">
-                                    <a class="btn btn-sm btn-outline-primary" href="attendance_report_view.php?id=<?= (int)$r['id'] ?>">
+                                    <a class="btn btn-sm btn-outline-primary" href="attendance_report.php">
                                         <i class="bi bi-eye"></i> View
                                     </a>
                                 </td>

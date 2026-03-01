@@ -48,7 +48,7 @@ final class SectionController
                 try {
                     $adminId = current_admin_id();
                     $reportId = AttendanceReport::create($sectionId, $adminId, $reportName, $items);
-                    redirect('attendance_report_view.php?id=' . $reportId);
+                    redirect('attendance_report.php');
                 } catch (PDOException $e) {
                     $error = 'Failed to submit attendance report.';
                 }

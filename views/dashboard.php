@@ -81,9 +81,11 @@ require_once __DIR__ . '/layout/sidebar.php';
                                 <i class="bi bi-check-circle me-2"></i>Mark Attendance
                             </a>
                             <div class="d-flex gap-2">
+                                <?php if (is_super_admin()): ?>
                                 <a class="btn btn-outline-primary flex-fill" href="students.php">
                                     <i class="bi bi-people me-1"></i> Manage
                                 </a>
+                                <?php endif; ?>
                                 <a class="btn btn-outline-secondary flex-fill" href="attendance_report.php">
                                     <i class="bi bi-file-earmark-text me-1"></i> Reports
                                 </a>

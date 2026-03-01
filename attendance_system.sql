@@ -17,6 +17,7 @@ CREATE TABLE admins (
     fullname VARCHAR(150) NOT NULL,
     email VARCHAR(190) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    role ENUM('super_admin', 'instructor') NOT NULL DEFAULT 'instructor',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -29,9 +30,7 @@ CREATE TABLE students (
     email VARCHAR(190) NOT NULL,
     contact_number VARCHAR(30) NOT NULL,
     student_number VARCHAR(20) NOT NULL UNIQUE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    admin_id INT NULL,
-    CONSTRAINT fk_students_admin FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE SET NULL ON UPDATE CASCADE
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 CREATE TABLE attendance (
@@ -49,9 +48,19 @@ CREATE TABLE attendance (
 CREATE TABLE sections (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(120) NOT NULL UNIQUE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    admin_id INT NULL,
-    CONSTRAINT fk_sections_admin FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE SET NULL ON UPDATE CASCADE
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE instructor_sections (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    instructor_id INT NOT NULL,
+    section_id INT NOT NULL,
+    assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    assigned_by INT NULL,
+    UNIQUE KEY unique_instructor_section (instructor_id, section_id),
+    CONSTRAINT fk_instructor_sections_instructor FOREIGN KEY (instructor_id) REFERENCES admins(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_instructor_sections_section FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_instructor_sections_assigned_by FOREIGN KEY (assigned_by) REFERENCES admins(id) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE section_students (
@@ -84,6 +93,8 @@ CREATE TABLE attendance_report_items (
 
 -- Sample admin:
 -- Email: admin@example.com
--- Password: admin123
-INSERT INTO admins (fullname, email, password)
-VALUES ('System Admin', 'admin@example.com', '$2y$10$tQpFUBtrqzsQVrKx58FgYuse1x1w1mX6G9bHrOtULm38wjDSfwJPm');
+-- Insert default super admin account
+INSERT INTO admins (fullname, email, password, role) 
+VALUES ('Super Admin', 'admin@attendance.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'super_admin');
+
+

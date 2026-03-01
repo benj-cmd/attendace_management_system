@@ -30,3 +30,42 @@ function current_admin_id(): ?int
 
     return isset($_SESSION['admin_id']) ? (int)$_SESSION['admin_id'] : null;
 }
+
+function current_admin_role(): ?string
+{
+    start_session();
+
+    return $_SESSION['admin_role'] ?? null;
+}
+
+function is_super_admin(): bool
+{
+    return current_admin_role() === 'super_admin';
+}
+
+function is_instructor(): bool
+{
+    return current_admin_role() === 'instructor';
+}
+
+function require_super_admin(): void
+{
+    require_auth();
+    
+    if (!is_super_admin()) {
+        header('HTTP/1.0 403 Forbidden');
+        echo 'Access denied. Super admin privileges required.';
+        exit;
+    }
+}
+
+function require_instructor(): void
+{
+    require_auth();
+    
+    if (!is_instructor()) {
+        header('HTTP/1.0 403 Forbidden');
+        echo 'Access denied. Instructor privileges required.';
+        exit;
+    }
+}

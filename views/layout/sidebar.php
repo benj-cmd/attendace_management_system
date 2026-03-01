@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/helpers.php';
+require_once __DIR__ . '/../../config/auth.php';
 
 $current = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
 $isActive = function (string $file) use ($current): string {
@@ -12,7 +13,6 @@ $isActive = function (string $file) use ($current): string {
             <div class="brand-mark">S</div>
             <div>
                 <div class="brand-title">SAMS</div>
-                <div class="brand-subtitle">Admin Dashboard</div>
             </div>
         </div>
     </div>
@@ -22,15 +22,27 @@ $isActive = function (string $file) use ($current): string {
             <i class="bi bi-speedometer2"></i>
             <span>Dashboard</span>
         </a>
+        
+        <?php if (is_super_admin()): ?>
+            <a class="nav-link<?= $isActive('students.php') ?><?= $isActive('student_edit.php') ?><?= $isActive('student_delete.php') ?>" href="students.php">
+                <i class="bi bi-people-fill"></i>
+                <span>Student Management</span>
+            </a>
+            <a class="nav-link<?= $isActive('users.php') ?>" href="users.php">
+                <i class="bi bi-person-gear"></i>
+                <span>User Management</span>
+            </a>
+            <a class="nav-link<?= $isActive('user_assignments.php') ?>" href="user_assignments.php">
+                <i class="bi bi-person-plus"></i>
+                <span>Instructor Assignments</span>
+            </a>
+            <div class="sidebar-divider"></div>
+        <?php endif; ?>
+        
         <a class="nav-link<?= $isActive('attendance.php') ?>" href="attendance.php">
             <i class="bi bi-check-circle-fill"></i>
             <span>Attendance</span>
         </a>
-        <a class="nav-link<?= $isActive('students.php') ?><?= $isActive('student_edit.php') ?><?= $isActive('student_delete.php') ?>" href="students.php">
-            <i class="bi bi-people-fill"></i>
-            <span>Student Management</span>
-        </a>
-        <div class="sidebar-divider"></div>
         <a class="nav-link<?= $isActive('attendance_report.php') ?>" href="attendance_report.php">
             <i class="bi bi-file-earmark-bar-graph"></i>
             <span>Attendance Report</span>

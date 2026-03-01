@@ -106,8 +106,7 @@
 
         <div class="text-center auth-footer">
             <p class="text-muted mb-0">
-                Don't have an account? 
-                <a href="register.php" style="color: #233f68;">Sign up</a>
+                Contact your administrator for account access
             </p>
         </div>
 

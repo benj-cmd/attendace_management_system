@@ -18,8 +18,8 @@ final class UnifiedReportController
         ?string $dateTo = null
     ): array {
         // Set default date range if not provided
-        $dateFrom = $dateFrom ?: date('Y-m-d'); // Today instead of first day of month
-        $dateTo = $dateTo ?: date('Y-m-d'); // Today
+        $dateFrom = $dateFrom ?: date('Y-m-d'); // Today
+        $dateTo = $dateTo ?: date('Y-m-d', strtotime('+1 day')); // Include tomorrow for today's attendance
         
         // Validate dates
         if (!self::isValidDate($dateFrom) || !self::isValidDate($dateTo)) {
@@ -102,7 +102,15 @@ final class UnifiedReportController
         string $dateFrom,
         string $dateTo
     ): array {
-        $adminId = current_admin_id();
+        $instructorId = current_admin_id();
+        
+        // Get sections the instructor has access to
+        $instructorSections = [];
+        if ($instructorId) {
+            $stmt = db()->prepare('SELECT section_id FROM instructor_sections WHERE instructor_id = :instructor_id');
+            $stmt->execute(['instructor_id' => $instructorId]);
+            $instructorSections = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        }
         
         // Get latest report for each section in the date range
         $sql = "
@@ -119,14 +127,11 @@ final class UnifiedReportController
             JOIN students s ON ari.student_id = s.id
             JOIN section_students ss ON s.id = ss.student_id
             JOIN sections sec ON ss.section_id = sec.id
-            WHERE DATE(ar.submitted_at) BETWEEN :date_from AND :date_to
-            AND sec.admin_id = :admin_id
-        ";
+            WHERE DATE(ar.submitted_at) BETWEEN :date_from AND :date_to";
         
         $params = [
             'date_from' => $dateFrom,
-            'date_to' => $dateTo,
-            'admin_id' => $adminId
+            'date_to' => $dateTo
         ];
         
         if ($sectionId) {
@@ -137,6 +142,17 @@ final class UnifiedReportController
         if ($studentId) {
             $sql .= " AND ari.student_id = :student_id";
             $params['student_id'] = $studentId;
+        }
+        
+        // Filter by instructor's assigned sections
+        if (!empty($instructorSections)) {
+            $placeholders = [];
+            foreach ($instructorSections as $i => $sectionId) {
+                $placeholder = ":instructor_section_$i";
+                $placeholders[] = $placeholder;
+                $params[$placeholder] = $sectionId;
+            }
+            $sql .= " AND ss.section_id IN (" . implode(',', $placeholders) . ")";
         }
         
         $sql .= " ORDER BY ar.submitted_at DESC, s.last_name ASC, s.first_name ASC";

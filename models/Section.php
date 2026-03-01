@@ -9,58 +9,111 @@ final class Section
 {
     public static function all(): array
     {
-        $adminId = current_admin_id();
-        $stmt = db()->prepare('SELECT * FROM sections WHERE admin_id = :admin_id ORDER BY name ASC');
-        $stmt->execute(['admin_id' => $adminId]);
-        return $stmt->fetchAll();
+        if (is_super_admin()) {
+            $stmt = db()->query('SELECT * FROM sections ORDER BY name ASC');
+            return $stmt->fetchAll();
+        } else {
+            // Instructors can only see sections assigned to them
+            $instructorId = current_admin_id();
+            $stmt = db()->prepare('
+                SELECT s.* FROM sections s
+                JOIN instructor_sections isa ON s.id = isa.section_id
+                WHERE isa.instructor_id = :instructor_id
+                ORDER BY s.name ASC
+            ');
+            $stmt->execute(['instructor_id' => $instructorId]);
+            return $stmt->fetchAll();
+        }
     }
 
     public static function countAll(): int
     {
-        $adminId = current_admin_id();
-        $stmt = db()->prepare('SELECT COUNT(*) AS c FROM sections WHERE admin_id = :admin_id');
-        $stmt->execute(['admin_id' => $adminId]);
-        $row = $stmt->fetch();
-        return (int)($row['c'] ?? 0);
+        if (is_super_admin()) {
+            $stmt = db()->query('SELECT COUNT(*) AS c FROM sections');
+            $row = $stmt->fetch();
+            return (int)($row['c'] ?? 0);
+        } else {
+            $instructorId = current_admin_id();
+            $stmt = db()->prepare('
+                SELECT COUNT(*) AS c FROM sections s
+                JOIN instructor_sections isa ON s.id = isa.section_id
+                WHERE isa.instructor_id = :instructor_id
+            ');
+            $stmt->execute(['instructor_id' => $instructorId]);
+            $row = $stmt->fetch();
+            return (int)($row['c'] ?? 0);
+        }
     }
 
     public static function create(string $name): int
     {
-        $adminId = current_admin_id();
-        $stmt = db()->prepare('INSERT INTO sections (name, admin_id) VALUES (:name, :admin_id)');
-        $stmt->execute(['name' => $name, 'admin_id' => $adminId]);
+        require_super_admin(); // Only super admin can create sections
+        
+        $stmt = db()->prepare('INSERT INTO sections (name) VALUES (:name)');
+        $stmt->execute(['name' => $name]);
         return (int)db()->lastInsertId();
     }
 
     public static function findById(int $id): ?array
     {
-        $adminId = current_admin_id();
-        $stmt = db()->prepare('SELECT * FROM sections WHERE id = :id AND admin_id = :admin_id LIMIT 1');
-        $stmt->execute(['id' => $id, 'admin_id' => $adminId]);
+        if (is_super_admin()) {
+            $stmt = db()->prepare('SELECT * FROM sections WHERE id = :id LIMIT 1');
+            $stmt->execute(['id' => $id]);
+        } else {
+            $instructorId = current_admin_id();
+            $stmt = db()->prepare('
+                SELECT s.* FROM sections s
+                JOIN instructor_sections isa ON s.id = isa.section_id
+                WHERE s.id = :id AND isa.instructor_id = :instructor_id
+                LIMIT 1
+            ');
+            $stmt->execute(['id' => $id, 'instructor_id' => $instructorId]);
+        }
+        
         $row = $stmt->fetch();
         return $row ?: null;
     }
 
     public static function sectionsWithStudents(): array
     {
-        $adminId = current_admin_id();
-        $sql = "SELECT
-                    sec.id AS section_id,
-                    sec.name AS section_name,
-                    sec.created_at AS section_created_at,
-                    s.id AS student_id,
-                    s.student_number,
-                    s.email,
-                    s.contact_number,
-                    TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)) AS fullname
-                FROM sections sec
-                LEFT JOIN section_students ss ON ss.section_id = sec.id
-                LEFT JOIN students s ON s.id = ss.student_id
-                WHERE sec.admin_id = :admin_id
-                ORDER BY sec.name ASC, s.last_name ASC, s.first_name ASC";
+        if (is_super_admin()) {
+            $sql = "SELECT
+                        sec.id AS section_id,
+                        sec.name AS section_name,
+                        sec.created_at AS section_created_at,
+                        s.id AS student_id,
+                        s.student_number,
+                        s.email,
+                        s.contact_number,
+                        TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)) AS fullname
+                    FROM sections sec
+                    LEFT JOIN section_students ss ON ss.section_id = sec.id
+                    LEFT JOIN students s ON s.id = ss.student_id
+                    ORDER BY sec.name ASC, s.last_name ASC, s.first_name ASC";
 
-        $stmt = db()->prepare($sql);
-        $stmt->execute(['admin_id' => $adminId]);
+            $stmt = db()->query($sql);
+        } else {
+            $instructorId = current_admin_id();
+            $sql = "SELECT
+                        sec.id AS section_id,
+                        sec.name AS section_name,
+                        sec.created_at AS section_created_at,
+                        s.id AS student_id,
+                        s.student_number,
+                        s.email,
+                        s.contact_number,
+                        TRIM(CONCAT_WS(' ', s.first_name, s.middle_name, s.last_name)) AS fullname
+                    FROM sections sec
+                    JOIN instructor_sections isa ON sec.id = isa.section_id
+                    LEFT JOIN section_students ss ON ss.section_id = sec.id
+                    LEFT JOIN students s ON s.id = ss.student_id
+                    WHERE isa.instructor_id = :instructor_id
+                    ORDER BY sec.name ASC, s.last_name ASC, s.first_name ASC";
+
+            $stmt = db()->prepare($sql);
+            $stmt->execute(['instructor_id' => $instructorId]);
+        }
+        
         $rows = $stmt->fetchAll();
 
         $map = [];
@@ -91,14 +144,8 @@ final class Section
 
     public static function addStudent(int $sectionId, int $studentId): void
     {
-        // Verify the section belongs to the current admin
-        $adminId = current_admin_id();
-        $stmt = db()->prepare('SELECT id FROM sections WHERE id = :section_id AND admin_id = :admin_id LIMIT 1');
-        $stmt->execute(['section_id' => $sectionId, 'admin_id' => $adminId]);
-        if (!$stmt->fetch()) {
-            throw new InvalidArgumentException('Section not found or access denied');
-        }
-
+        require_super_admin(); // Only super admin can add students to sections
+        
         $stmt = db()->prepare('INSERT IGNORE INTO section_students (section_id, student_id) VALUES (:section_id, :student_id)');
         $stmt->execute([
             'section_id' => $sectionId,
@@ -108,11 +155,9 @@ final class Section
 
     public static function studentsInSection(int $sectionId): array
     {
-        // Verify the section belongs to the current admin
-        $adminId = current_admin_id();
-        $stmt = db()->prepare('SELECT id FROM sections WHERE id = :section_id AND admin_id = :admin_id LIMIT 1');
-        $stmt->execute(['section_id' => $sectionId, 'admin_id' => $adminId]);
-        if (!$stmt->fetch()) {
+        // Verify access to section
+        $section = self::findById($sectionId);
+        if (!$section) {
             throw new InvalidArgumentException('Section not found or access denied');
         }
 
